@@ -1,52 +1,47 @@
-# Frontend - Business Idea Analyzer
+# Frontend - Nova AI Architect
 
-## What's here
+This directory contains the Next.js frontend application for Nova, providing a fluid, voice-native interface for founders to interact with the AI business advisor.
 
-- `app/page.tsx` — main screen, wires the mic hook + WebSocket hook + all visual components together
-- `hooks/useAudioStream.ts` — captures your mic, converts it to the exact PCM format the backend expects
-- `hooks/useAgentSocket.ts` — connects to the backend, plays Vera's voice back, handles instant interruption
-- `components/` — VoiceOrb, TranscriptStream, AgentWorkspace, InvestorSnapshot
-- `lib/types.ts` — shared shapes, mirrors `backend/schemas.py` exactly
+## Architectural Overview
 
-## How this connects to the backend
+The frontend is designed as a stateless, highly reactive presentation layer. It captures raw microphone input using the native Web Audio API, streams PCM data over WebSockets to the backend, and dynamically renders dense data visualizations based on real-time state updates from the AI agent.
 
-`useAgentSocket` opens a WebSocket to whatever URL is in `NEXT_PUBLIC_WS_URL` (see `.env.local` — defaults to `ws://localhost:8000/ws`). That means:
+### Core Components
 
-1. Your **backend must already be running** (`uvicorn main:app --reload --port 8000`) before you start this.
-2. This frontend and that backend are two separate things running in two separate terminals at the same time. Neither one works alone.
+*   **`app/page.tsx`**: The primary application view. It orchestrates the audio stream, WebSocket connection, and layout management.
+*   **`hooks/useAudioStream.ts`**: Handles microphone permissions, captures raw audio, and converts it into the precise 16kHz PCM format required by Gemini Live.
+*   **`hooks/useAgentSocket.ts`**: Manages the bidirectional WebSocket connection. It handles audio playback of the agent's voice and implements instantaneous audio queue flushing for seamless barge-in (interruption) capabilities.
+*   **`components/VoiceOrb.tsx`**: The primary interaction interface, reacting dynamically to microphone amplitude and agent states (listening, thinking, speaking).
+*   **`components/AgentWorkspace.tsx`**: A side-channel UI that visualizes the autonomous tools currently being executed by the backend.
+*   **`components/InvestorSnapshot.tsx`**: Renders the final, aggregated business report, including Recharts visualizations for financial metrics.
 
-## Setup
+## Setup Instructions
 
-```bash
-cd frontend
-npm install
-```
+1.  **Install Dependencies:**
+    ```bash
+    cd frontend
+    npm install
+    ```
 
-`.env.local` is already set up pointing at `localhost:8000` — no changes needed for local testing.
+2.  **Environment Configuration:**
+    Create a `.env.local` file in this directory to point the frontend to your local backend:
+    ```env
+    NEXT_PUBLIC_WS_URL=ws://localhost:8001/ws
+    NEXT_PUBLIC_API_URL=http://localhost:8001
+    ```
 
-## Run it
+## Running the Application
+
+Start the Next.js development server:
 
 ```bash
 npm run dev
 ```
 
-Open `http://localhost:3000`. Click "Start talking to Vera," allow microphone access, and talk.
+The application will be accessible at `http://localhost:3000`.
 
-## Testing checklist, in order
+## Technical Considerations
 
-1. **Backend running first** — check `http://localhost:8000/health` shows `{"status": "ok"}` before touching the frontend at all.
-2. **Frontend loads** — `http://localhost:3000` shows the orb and the "Start talking to Vera" button, no console errors on load.
-3. **Mic permission works** — clicking the button prompts for mic access in the browser.
-4. **Orb reacts** — talk, and the orb should visibly pulse (this proves `useAudioStream` amplitude detection is working, independent of whether the backend/Gemini connection works yet).
-5. **You hear a response** — this is the real end-to-end test: your voice → backend → Gemini → back → your speakers.
-6. **Interrupt works** — talk over Vera mid-sentence, she should stop instantly, not finish her sentence (this is the exact bug we saw in AI Studio's own test player — this frontend explicitly fixes it by flushing the audio queue the moment an "interrupted" message arrives).
-7. **Agent workspace panel fills in** — as tools get called, cards should appear on the right side of the screen.
-8. **Final report renders** — once Vera calls `compile_investor_report`, the InvestorSnapshot component with charts should appear at the bottom.
-
-## Known things to watch for
-
-- **Browser mic permissions**: if nothing happens when you click the button, check your browser didn't silently block the mic permission prompt (look for a blocked-mic icon in the address bar).
-- **ScriptProcessorNode deprecation**: `useAudioStream` uses `ScriptProcessorNode`, which browsers have marked deprecated but still fully support. It was chosen over the more "correct" AudioWorklet approach because it's simpler and more reliable to get working under a tight deadline. Not worth changing before your submission.
-- **CORS**: the backend currently allows all origins (`*`) for local dev — that's why this works out of the box. If you deploy the backend somewhere and don't update its CORS settings, the deployed frontend won't be able to connect.
-- **`sharp`/image-optimization vulnerabilities**: `npm audit` will show some remaining high-severity warnings tied to Next's built-in image optimizer. This app doesn't use `next/image` at all, so they're not actually exploitable here — not worth chasing a Next.js 16 upgrade this close to your deadline.
-- **Deploying later**: when you deploy to Vercel, set `NEXT_PUBLIC_WS_URL` in Vercel's environment variables to your deployed backend's WebSocket URL (`wss://your-backend.onrender.com/ws`, note `wss` not `ws` for a secure connection).
+*   **Web Audio API:** The application uses `ScriptProcessorNode` for audio capture to ensure reliable cross-browser compatibility within strict time constraints.
+*   **Barge-in Logic:** True conversational interruption is achieved by forcefully stopping all scheduled `AudioBufferSourceNode` playback the moment an `interrupted` event is received from the WebSocket.
+*   **PDF Generation:** The application uses `@react-pdf/renderer` to generate highly styled, downloadable PDF reports entirely on the client side, eliminating the need for complex backend PDF rendering pipelines.
