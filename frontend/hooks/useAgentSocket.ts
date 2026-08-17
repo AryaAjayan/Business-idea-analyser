@@ -92,8 +92,7 @@ export function useAgentSocket(wsUrl: string) {
     [getPlaybackContext]
   );
 
-  const connect = useCallback((sessionId?: string) => {
-    // Reset all state for a completely fresh start
+  const resetState = useCallback(() => {
     setTranscript([]);
     setAgentState("idle");
     setAgentAmplitude(0);
@@ -101,7 +100,14 @@ export function useAgentSocket(wsUrl: string) {
     setConfidenceHistory([]);
     setToolEvents([]);
     setReport(null);
-    setActiveSessionId(sessionId || null);
+    setActiveSessionId(null);
+  }, []);
+
+  const connect = useCallback((sessionId?: string) => {
+    resetState();
+    if (sessionId) {
+      setActiveSessionId(sessionId);
+    }
 
     const url = sessionId ? `${wsUrl}?session_id=${sessionId}` : wsUrl;
     const ws = new WebSocket(url);
@@ -134,7 +140,22 @@ export function useAgentSocket(wsUrl: string) {
           break;
 
         case "transcript":
-          setTranscript((prev) => [...prev, { role: msg.role, text: msg.text }]);
+          setTranscript((prev) => {
+            if (prev.length > 0 && prev[prev.length - 1].role === msg.role) {
+              const copy = [...prev];
+              const prevText = copy[copy.length - 1].text;
+              const newText = msg.text;
+              const lastChar = prevText.slice(-1);
+              const firstChar = newText.slice(0, 1);
+              const needsSpace = prevText.length > 0 && lastChar !== ' ' && firstChar !== ' ' && !/^[.,!?]/.test(firstChar);
+              copy[copy.length - 1] = {
+                ...copy[copy.length - 1],
+                text: prevText + (needsSpace ? ' ' : '') + newText
+              };
+              return copy;
+            }
+            return [...prev, { role: msg.role, text: msg.text }];
+          });
           break;
 
         case "tool_event":
@@ -221,5 +242,6 @@ export function useAgentSocket(wsUrl: string) {
     generateReport,
     setLanguage,
     setAgentState,
+    resetState,
   };
 }

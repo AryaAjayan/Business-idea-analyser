@@ -326,6 +326,7 @@ export default function Home() {
           <button
             onClick={() => {
               if (sessionStarted) endSession();
+              agent.resetState();
               setEditingSessionId(null);
               setActiveSessionTitle("Untitled conversation");
               setSidebarOpen(false);
@@ -578,6 +579,13 @@ export default function Home() {
                       View full transcript
                     </button>
                   )}
+                  <button
+                    id="mute-mic-btn"
+                    onClick={mic.toggleMute}
+                    className={`flex-1 px-4 py-2 rounded-full border transition-colors font-medium shadow-sm text-sm ${mic.isMuted ? 'bg-red-50 text-red-500 border-red-200 dark:bg-red-500/10 dark:border-red-500/30' : 'bg-void border-theme text-muted hover:text-main'}`}
+                  >
+                    {mic.isMuted ? 'Unmute' : 'Mute'}
+                  </button>
                   <button
                     id="end-session-btn"
                     onClick={endSession}

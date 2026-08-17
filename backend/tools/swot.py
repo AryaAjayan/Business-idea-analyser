@@ -3,13 +3,11 @@ from tools._client import structure_as_json
 
 async def analyze_competitors(idea: str, search_results: str) -> dict:
     prompt = f"""
-You are a strict business analyst. Using ONLY the information in the search
-findings below, extract real competitors. Do NOT invent names, do NOT add
-companies that are not mentioned in the search findings.
+You are an expert business analyst. Identify the key competitors for the following business idea.
+Use the search findings below, but ALSO use your own deep knowledge of the industry to identify major established players.
 
-If the search findings do not contain clear competitor information, return
-an empty key_competitors list. It is better to return nothing than to
-hallucinate companies.
+For each competitor, list their main strengths and weaknesses relative to the proposed idea.
+If you cannot identify specific competitors, list general substitute solutions people use today.
 
 Produce a JSON object with this exact shape, nothing else, no markdown fences:
 
@@ -17,11 +15,11 @@ Produce a JSON object with this exact shape, nothing else, no markdown fences:
   "key_competitors": [
     {{"name": "...", "strengths": ["..."], "weaknesses": ["..."]}}
   ],
-  "gap_analysis": "one or two sentence summary of the market gap, drawn ONLY from the search findings. If no gap is evident, write 'No clear gap identified from available evidence.'"
+  "gap_analysis": "One or two sentence summary of the market gap or opportunity."
 }}
 
 Business idea: {idea}
-Search findings (ONLY source of truth - do not add anything beyond this):
+Search findings and context:
 {search_results}
 """
     fallback = {
@@ -33,17 +31,15 @@ Search findings (ONLY source of truth - do not add anything beyond this):
 
 async def generate_swot(idea: str, market_context: str) -> dict:
     prompt = f"""
-You are a strict business analyst. Using ONLY the information in the market
-context below, generate a SWOT analysis. Every bullet point must be directly
-supported by something in the provided market context.
+You are an expert business analyst. Generate a comprehensive SWOT analysis for the following business idea.
+
+Use the provided market context, but ALSO deeply rely on your own industry knowledge, logic, and strategic reasoning to identify strengths, weaknesses, opportunities, and threats.
 
 Rules:
-- Do NOT add generic industry clichés (e.g. "large market opportunity") unless
-  specifically evidenced in the context.
-- Do NOT invent threats or opportunities not mentioned in the context.
-- If there is not enough evidence for a category, return an empty list for
-  that category. Empty lists are correct and honest.
-- Maximum 4 items per category.
+- Be highly specific to this exact idea and market dynamics.
+- Avoid generic filler (e.g., "good team", "large market").
+- Provide 2 to 4 highly insightful bullet points per category.
+- Do NOT return empty categories. You are an expert; you can always deduce strategic risks and advantages.
 
 Produce a JSON object with this exact shape, nothing else, no markdown fences:
 
@@ -55,7 +51,7 @@ Produce a JSON object with this exact shape, nothing else, no markdown fences:
 }}
 
 Business idea: {idea}
-Market context (ONLY source of truth - do not add anything beyond this):
+Market context:
 {market_context}
 """
     fallback = {

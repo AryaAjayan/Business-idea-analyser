@@ -240,10 +240,28 @@ class AgentSession:
             print(">>> Connected to Gemini Live successfully", flush=True)
             self._live_session = session
 
+            if self.is_resume:
+                # Hydrate the frontend UI with past state
+                for entry in self.transcript:
+                    await self.client_ws.send_text(json.dumps({
+                        "type": "transcript",
+                        "role": entry.get("role"),
+                        "text": entry.get("text", "")
+                    }))
+                if "report" in self.session_state:
+                    await self.client_ws.send_text(json.dumps({
+                        "type": "report",
+                        "report": self.session_state["report"]
+                    }))
+                if "nova_confidence" in self.session_state:
+                    await self.client_ws.send_text(json.dumps({
+                        "type": "confidence_update",
+                        "score": self.session_state["nova_confidence"]
+                    }))
+
             # Send the opening kickoff turn so Nova speaks first.
             if self.is_resume and self.idea_summary:
                 print(">>> [Step 4] ENTERED is_resume BRANCH in real flow", flush=True)
-                print(f">>> [Step 3] ACTUAL FULL TRANSCRIPT CONTENT AT KICKOFF:\n{json.dumps(self.transcript, indent=2)}\n", flush=True)
                 
                 # Safeguard against massive context bloat on long sessions
                 MAX_ENTRIES = 40
@@ -269,9 +287,10 @@ class AgentSession:
             else:
                 kickoff_text = "(session started — please begin with your opening greeting)"
 
-            try:
-                print(f">>> [Step 5] KICKOFF TEXT BEING SENT: {kickoff_text}", flush=True)
+            client_task = asyncio.create_task(self._receive_from_client())
+            gemini_task = asyncio.create_task(self._receive_from_gemini())
 
+            try:
                 await self._live_session.send_client_content(
                     turns=types.Content(
                         role="user",
@@ -284,9 +303,6 @@ class AgentSession:
                 print(">>> CRASH DURING KICKOFF SEND:", flush=True)
                 traceback.print_exc()
                 raise e # Loudly crash as requested to find the root cause
-
-            client_task = asyncio.create_task(self._receive_from_client())
-            gemini_task = asyncio.create_task(self._receive_from_gemini())
 
             try:
                 await client_task
@@ -329,6 +345,7 @@ class AgentSession:
                 # evidence we have right now and push it to the frontend.
                 print(">>> Generating report on user request", flush=True)
                 result = await compile_investor_report(self.session_state)
+                self.session_state["report"] = result
                 await self._send_to_client({"type": "report", "report": result})
             elif msg.get("type") == "set_language":
                 lang = msg.get("language")
@@ -483,6 +500,13 @@ class AgentSession:
                 types.FunctionResponse(name=fc.name, id=fc.id, response={"result": result})
             )
 
+            # If a report has already been generated, automatically update it
+            # whenever a tool finishes, so the UI reflects the latest research.
+            if "report" in self.session_state and fc.name != "compile_investor_report":
+                updated_report = await compile_investor_report(self.session_state)
+                self.session_state["report"] = updated_report
+                await self._send_to_client({"type": "report", "report": updated_report})
+
         await self._live_session.send_tool_response(function_responses=function_responses)
 
     async def _dispatch_tool(self, name: str, args: dict) -> dict:
@@ -506,7 +530,8 @@ class AgentSession:
             # so the LLM cannot hallucinate companies not found on the web.
             search_text = self._search_summaries()
             if search_text:
-                args = {**args, "search_results": search_text}
+                existing = args.get("search_results", "")
+                args["search_results"] = f"{existing}\n\nSearch Data:\n{search_text}" if existing else search_text
             result = await analyze_competitors(**args)
             self.session_state["competitors"] = result
             return result
@@ -516,7 +541,8 @@ class AgentSession:
             # is not sufficient and leads to hallucinated bullet points.
             search_text = self._search_summaries()
             if search_text:
-                args = {**args, "market_context": search_text}
+                existing = args.get("market_context", "")
+                args["market_context"] = f"{existing}\n\nSearch Data:\n{search_text}" if existing else search_text
             result = await generate_swot(**args)
             self.session_state["swot"] = result
             return result
@@ -558,8 +584,24 @@ class AgentSession:
     async def _send_to_client(self, payload: dict):
         # Accumulate transcript entries so main.py can persist them on disconnect
         if payload.get("type") == "transcript":
-            self.transcript.append({
-                "role": payload.get("role"),
-                "text": payload.get("text", ""),
-            })
+            role = payload.get("role")
+            text = payload.get("text", "")
+            if self.transcript and self.transcript[-1]["role"] == role:
+                prev_text = self.transcript[-1]["text"]
+                needs_space = False
+                if prev_text and text:
+                    last_char = prev_text[-1]
+                    first_char = text[0]
+                    if last_char != ' ' and first_char != ' ' and first_char not in ".,!?":
+                        needs_space = True
+                
+                if needs_space:
+                    self.transcript[-1]["text"] += " " + text
+                else:
+                    self.transcript[-1]["text"] += text
+            else:
+                self.transcript.append({
+                    "role": role,
+                    "text": text,
+                })
         await self.client_ws.send_text(json.dumps(payload))

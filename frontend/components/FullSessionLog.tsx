@@ -78,33 +78,6 @@ export default function FullSessionLog({ transcript, toolEvents, onClose }: Prop
             )}
           </section>
 
-          {/* ── Tool results section ── */}
-          <section>
-            <h3 className="text-[11px] text-white/30 uppercase tracking-widest mb-3">
-              Research &amp; Tool Results
-            </h3>
-            {toolEvents.filter(e => e.status === "done").length === 0 ? (
-              <p className="text-white/20 text-sm italic">No tool results yet.</p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {toolEvents
-                  .filter(e => e.status === "done")
-                  .map((event) => (
-                    <div key={event.id} className="rounded-xl bg-white/[0.04] border border-white/8 p-3">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-[10px] bg-white/10 text-white/60 rounded px-1.5 py-0.5 font-mono uppercase tracking-wider">
-                          {event.tool.replace(/_/g, " ")}
-                        </span>
-                        <span className="text-[10px] text-green-400/70">✓ done</span>
-                      </div>
-                      <pre className="text-[11px] text-white/50 whitespace-pre-wrap font-mono leading-relaxed overflow-x-auto">
-                        {resultSummary(event.result)}
-                      </pre>
-                    </div>
-                  ))}
-              </div>
-            )}
-          </section>
 
           <div ref={bottomRef} />
         </div>

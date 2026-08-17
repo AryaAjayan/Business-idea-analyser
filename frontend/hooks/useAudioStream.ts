@@ -22,6 +22,7 @@ export function useAudioStream() {
   const [amplitude, setAmplitude] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [micFailed, setMicFailed] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
@@ -110,5 +111,15 @@ export function useAudioStream() {
     setAmplitude(0);
   }, []);
 
-  return { start, stop, pauseRecording, amplitude, isRecording, micFailed };
+  const toggleMute = useCallback(() => {
+    if (streamRef.current) {
+      const audioTracks = streamRef.current.getAudioTracks();
+      audioTracks.forEach((track) => {
+        track.enabled = !track.enabled;
+      });
+      setIsMuted(!audioTracks[0]?.enabled);
+    }
+  }, []);
+
+  return { start, stop, pauseRecording, amplitude, isRecording, micFailed, isMuted, toggleMute };
 }

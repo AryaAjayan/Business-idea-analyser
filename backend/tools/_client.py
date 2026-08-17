@@ -1,7 +1,7 @@
 """
 Small shared helper: a couple of the tools (SWOT, competitor analysis) need
 to turn loose text into structured JSON. Rather than pull in a second LLM,
-we reuse Gemini's free-tier Flash-Lite text model for this - it's a text
+we reuse Gemini's free-tier Flash text model for this - it's a text
 generation call, not a Live session, so it's simple request/response.
 """
 import os
@@ -23,14 +23,14 @@ def get_text_client() -> genai.Client:
 
 async def structure_as_json(prompt: str, fallback: dict) -> dict:
     """
-    Calls Gemini 2.5 Flash-Lite (free tier) with a prompt asking for pure
+    Calls Gemini 3.5 Flash-Lite (free tier) with a prompt asking for pure
     JSON back. Returns `fallback` if anything goes wrong, so a flaky call
     never crashes the live voice session.
     """
     try:
         client = get_text_client()
         resp = client.models.generate_content(
-            model="gemini-2.5-flash-lite",
+            model="gemini-3.5-flash-lite",
             contents=prompt,
             config={"response_mime_type": "application/json"},
         )

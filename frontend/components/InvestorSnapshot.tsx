@@ -41,7 +41,7 @@ export default function InvestorSnapshot({ report }: { report: InvestorReport })
       initial="hidden"
       animate="show"
     >
-      <motion.p variants={itemVariants} className="font-display text-2xl md:text-3xl font-bold text-center leading-snug tracking-tight text-main">
+      <motion.p variants={itemVariants} className="text-base md:text-lg font-semibold text-center leading-relaxed text-main/90">
         {report.verdict}
       </motion.p>
 
